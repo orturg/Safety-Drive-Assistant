@@ -14,7 +14,14 @@ final class CameraSessionManager: ObservableObject {
     let session = AVCaptureSession()
 
     private let sessionQueue = DispatchQueue(label: "camera.session.queue")
+    private let videoOutputQueue = DispatchQueue(label: "camera.video.output.queue")
+    private let videoOutput = AVCaptureVideoDataOutput()
+    private let frameOutput: CameraFrameOutput
     private var isConfigured = false
+
+    init(onSampleBuffer: @escaping (CMSampleBuffer) -> Void = { _ in }) {
+        frameOutput = CameraFrameOutput(onSampleBuffer: onSampleBuffer)
+    }
 
     func start() {
         sessionQueue.async { [weak self] in
@@ -43,6 +50,16 @@ final class CameraSessionManager: ObservableObject {
            let input = try? AVCaptureDeviceInput(device: device),
            session.canAddInput(input) {
             session.addInput(input)
+        }
+
+        videoOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+        ]
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.setSampleBufferDelegate(frameOutput, queue: videoOutputQueue)
+
+        if session.canAddOutput(videoOutput) {
+            session.addOutput(videoOutput)
         }
 
         session.commitConfiguration()
