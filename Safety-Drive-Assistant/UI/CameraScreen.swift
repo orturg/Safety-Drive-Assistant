@@ -31,7 +31,7 @@ struct CameraScreen: View {
                         .fill(faceDetector.isFaceDetected ? .green : .red)
                         .frame(width: 12, height: 12)
 
-                    Text(faceDetector.isFaceDetected ? "Face detected" : "No face")
+                    Text(faceDetector.isFaceDetected ? String(format: "EAR: %.2f", faceDetector.eyeAspectRatio) : "No face")
                         .font(.caption)
                         .foregroundStyle(.white)
 
