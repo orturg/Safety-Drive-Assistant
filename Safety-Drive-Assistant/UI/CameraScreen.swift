@@ -28,10 +28,10 @@ struct CameraScreen: View {
             VStack {
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(faceDetector.isFaceDetected ? .green : .red)
+                        .fill(statusColor)
                         .frame(width: 12, height: 12)
 
-                    Text(faceDetector.isFaceDetected ? String(format: "EAR: %.2f", faceDetector.eyeAspectRatio) : "No face")
+                    Text(statusText)
                         .font(.caption)
                         .foregroundStyle(.white)
 
@@ -48,6 +48,32 @@ struct CameraScreen: View {
         }
         .onDisappear {
             cameraManager.stop()
+        }
+    }
+
+    private var statusColor: Color {
+        guard faceDetector.isFaceDetected else { return .red }
+
+        switch faceDetector.calibrationState {
+        case .idle, .calibrating:
+            return .orange
+        case .calibrated:
+            return faceDetector.eyesClosed ? .red : .green
+        }
+    }
+
+    private var statusText: String {
+        guard faceDetector.isFaceDetected else { return "No face" }
+
+        switch faceDetector.calibrationState {
+        case .idle:
+            return "Calibrating…"
+        case .calibrating(let progress):
+            return "Calibrating… \(Int(progress * 100))%"
+        case .calibrated:
+            return faceDetector.eyesClosed
+                ? "Eyes closed"
+                : String(format: "EAR %.2f / base %.2f", faceDetector.eyeAspectRatio, faceDetector.baseline)
         }
     }
 }

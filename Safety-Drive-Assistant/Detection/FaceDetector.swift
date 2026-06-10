@@ -11,9 +11,25 @@ import Combine
 
 final class FaceDetector: ObservableObject {
 
+    enum CalibrationState: Equatable {
+        case idle
+        case calibrating(progress: Double)
+        case calibrated
+    }
+
     @Published private(set) var isFaceDetected = false
     @Published private(set) var faceBoundingBox: CGRect = .zero
     @Published private(set) var eyeAspectRatio: Double = 0
+    @Published private(set) var calibrationState: CalibrationState = .idle
+    @Published private(set) var baseline: Double = 0
+    @Published private(set) var closedEyeThreshold: Double = 0
+    @Published private(set) var eyesClosed = false
+
+    private let calibrationDuration: TimeInterval = 3
+    private let closedEyeRatio = 0.75
+
+    private var calibrationSamples: [Double] = []
+    private var calibrationStartedAt: Date?
 
     nonisolated private static let imageOrientation: CGImagePropertyOrientation = .leftMirrored
 
@@ -26,16 +42,86 @@ final class FaceDetector: ObservableObject {
         do {
             try handler.perform([request])
         } catch {
-            publish(detected: false, boundingBox: .zero, eyeAspectRatio: 0)
+            deliver(faceDetected: false, eyeAspectRatio: 0, boundingBox: .zero)
             return
         }
 
         guard let face = request.results?.first else {
-            publish(detected: false, boundingBox: .zero, eyeAspectRatio: 0)
+            deliver(faceDetected: false, eyeAspectRatio: 0, boundingBox: .zero)
             return
         }
 
-        publish(detected: true, boundingBox: face.boundingBox, eyeAspectRatio: averageEyeAspectRatio(for: face))
+        deliver(faceDetected: true, eyeAspectRatio: averageEyeAspectRatio(for: face), boundingBox: face.boundingBox)
+    }
+
+    nonisolated private func deliver(faceDetected: Bool, eyeAspectRatio: Double, boundingBox: CGRect) {
+        DispatchQueue.main.async { [weak self] in
+            self?.consume(faceDetected: faceDetected, eyeAspectRatio: eyeAspectRatio, boundingBox: boundingBox)
+        }
+    }
+
+    private func consume(faceDetected: Bool, eyeAspectRatio: Double, boundingBox: CGRect) {
+        isFaceDetected = faceDetected
+        faceBoundingBox = boundingBox
+        self.eyeAspectRatio = eyeAspectRatio
+
+        guard faceDetected else {
+            eyesClosed = false
+            if case .calibrating = calibrationState {
+                resetCalibration()
+            }
+            return
+        }
+
+        switch calibrationState {
+        case .idle:
+            startCalibration(with: eyeAspectRatio)
+        case .calibrating:
+            updateCalibration(with: eyeAspectRatio)
+        case .calibrated:
+            eyesClosed = eyeAspectRatio < closedEyeThreshold
+        }
+    }
+
+    private func startCalibration(with sample: Double) {
+        calibrationStartedAt = Date()
+        calibrationSamples = [sample]
+        calibrationState = .calibrating(progress: 0)
+    }
+
+    private func updateCalibration(with sample: Double) {
+        calibrationSamples.append(sample)
+
+        let elapsed = Date().timeIntervalSince(calibrationStartedAt ?? Date())
+        let progress = min(elapsed / calibrationDuration, 1)
+
+        if progress >= 1 {
+            finishCalibration()
+        } else {
+            calibrationState = .calibrating(progress: progress)
+        }
+    }
+
+    private func finishCalibration() {
+        guard !calibrationSamples.isEmpty else {
+            resetCalibration()
+            return
+        }
+
+        let sorted = calibrationSamples.sorted()
+        let median = sorted[sorted.count / 2]
+
+        baseline = median
+        closedEyeThreshold = median * closedEyeRatio
+        calibrationState = .calibrated
+        calibrationSamples = []
+        calibrationStartedAt = nil
+    }
+
+    private func resetCalibration() {
+        calibrationState = .idle
+        calibrationSamples = []
+        calibrationStartedAt = nil
     }
 
     nonisolated private func averageEyeAspectRatio(for face: VNFaceObservation) -> Double {
@@ -63,13 +149,5 @@ final class FaceDetector: ObservableObject {
         guard width > 0 else { return nil }
 
         return (maxY - minY) / width
-    }
-
-    nonisolated private func publish(detected: Bool, boundingBox: CGRect, eyeAspectRatio: Double) {
-        DispatchQueue.main.async { [weak self] in
-            self?.isFaceDetected = detected
-            self?.faceBoundingBox = boundingBox
-            self?.eyeAspectRatio = eyeAspectRatio
-        }
     }
 }
