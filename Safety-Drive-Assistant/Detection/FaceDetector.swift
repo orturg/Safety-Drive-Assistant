@@ -17,6 +17,11 @@ final class FaceDetector: ObservableObject {
         case calibrated
     }
 
+    private struct EyeSample {
+        let time: Date
+        let closed: Bool
+    }
+
     @Published private(set) var isFaceDetected = false
     @Published private(set) var faceBoundingBox: CGRect = .zero
     @Published private(set) var eyeAspectRatio: Double = 0
@@ -24,12 +29,15 @@ final class FaceDetector: ObservableObject {
     @Published private(set) var baseline: Double = 0
     @Published private(set) var closedEyeThreshold: Double = 0
     @Published private(set) var eyesClosed = false
+    @Published private(set) var perclos: Double = 0
 
     private let calibrationDuration: TimeInterval = 3
     private let closedEyeRatio = 0.75
+    private let perclosWindow: TimeInterval = 15
 
     private var calibrationSamples: [Double] = []
     private var calibrationStartedAt: Date?
+    private var eyeSamples: [EyeSample] = []
 
     nonisolated private static let imageOrientation: CGImagePropertyOrientation = .leftMirrored
 
@@ -80,6 +88,7 @@ final class FaceDetector: ObservableObject {
             updateCalibration(with: eyeAspectRatio)
         case .calibrated:
             eyesClosed = eyeAspectRatio < closedEyeThreshold
+            updatePerclos(closed: eyesClosed)
         }
     }
 
@@ -122,6 +131,19 @@ final class FaceDetector: ObservableObject {
         calibrationState = .idle
         calibrationSamples = []
         calibrationStartedAt = nil
+        eyeSamples = []
+        perclos = 0
+    }
+
+    private func updatePerclos(closed: Bool) {
+        let now = Date()
+        eyeSamples.append(EyeSample(time: now, closed: closed))
+
+        let cutoff = now.addingTimeInterval(-perclosWindow)
+        eyeSamples.removeAll { $0.time < cutoff }
+
+        let closedCount = eyeSamples.filter(\.closed).count
+        perclos = eyeSamples.isEmpty ? 0 : Double(closedCount) / Double(eyeSamples.count)
     }
 
     nonisolated private func averageEyeAspectRatio(for face: VNFaceObservation) -> Double {

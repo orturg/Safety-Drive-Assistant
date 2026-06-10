@@ -71,9 +71,10 @@ struct CameraScreen: View {
         case .calibrating(let progress):
             return "Calibrating… \(Int(progress * 100))%"
         case .calibrated:
+            let perclos = String(format: "PERCLOS %.0f%%", faceDetector.perclos * 100)
             return faceDetector.eyesClosed
-                ? "Eyes closed"
-                : String(format: "EAR %.2f / base %.2f", faceDetector.eyeAspectRatio, faceDetector.baseline)
+                ? "Eyes closed · \(perclos)"
+                : String(format: "EAR %.2f · \(perclos)", faceDetector.eyeAspectRatio)
         }
     }
 }
