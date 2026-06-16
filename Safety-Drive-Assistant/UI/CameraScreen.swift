@@ -11,6 +11,7 @@ struct CameraScreen: View {
 
     @StateObject private var faceDetector: FaceDetector
     @StateObject private var cameraManager: CameraSessionManager
+    @StateObject private var soundPlayer = AlertSoundPlayer()
 
     init() {
         let detector = FaceDetector()
@@ -61,8 +62,16 @@ struct CameraScreen: View {
         .onAppear {
             cameraManager.start()
         }
+        .onChange(of: faceDetector.alert) { _, newAlert in
+            switch newAlert?.type {
+            case .warning: soundPlayer.playWarning()
+            case .critical: soundPlayer.startCritical()
+            case nil: soundPlayer.stop()
+            }
+        }
         .onDisappear {
             cameraManager.stop()
+            soundPlayer.stop()
         }
     }
     

@@ -43,6 +43,7 @@ final class CameraSessionManager: ObservableObject {
     private func configureIfNeeded() {
         guard !isConfigured else { return }
 
+        session.automaticallyConfiguresApplicationAudioSession = false
         session.beginConfiguration()
         session.sessionPreset = .high
 
