@@ -30,6 +30,8 @@ final class FaceDetector: ObservableObject {
     @Published private(set) var closedEyeThreshold: Double = 0
     @Published private(set) var eyesClosed = false
     @Published private(set) var perclos: Double = 0
+    
+    var isCalibrationEnabled: Bool = false
 
     private let calibrationDuration: TimeInterval = 3
     private let closedEyeRatio = 0.75
@@ -83,6 +85,7 @@ final class FaceDetector: ObservableObject {
 
         switch calibrationState {
         case .idle:
+            guard isCalibrationEnabled else { return }
             startCalibration(with: eyeAspectRatio)
         case .calibrating:
             updateCalibration(with: eyeAspectRatio)
