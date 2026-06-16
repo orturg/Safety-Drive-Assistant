@@ -58,7 +58,14 @@ struct CameraScreen: View {
                     Spacer()
                 }
             }
+
+            if let alert = faceDetector.alert {
+                AlertView(alertType: alert.type, alertReason: alert.reason)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: faceDetector.alert)
         .onAppear {
             cameraManager.start()
         }
