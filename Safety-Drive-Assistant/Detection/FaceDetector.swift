@@ -30,16 +30,22 @@ final class FaceDetector: ObservableObject {
     @Published private(set) var closedEyeThreshold: Double = 0
     @Published private(set) var eyesClosed = false
     @Published private(set) var perclos: Double = 0
-    
+    @Published private(set) var headPitch: Double = 0
+    @Published private(set) var headYaw: Double = 0
+    @Published private(set) var isHeadDown = false
+
     var isCalibrationEnabled: Bool = false
 
     private let calibrationDuration: TimeInterval = 3
     private let closedEyeRatio = 0.75
     private let perclosWindow: TimeInterval = 15
+    private let headDownThreshold: Double = 12
 
     private var calibrationSamples: [Double] = []
+    private var calibrationPitchSamples: [Double] = []
     private var calibrationStartedAt: Date?
     private var eyeSamples: [EyeSample] = []
+    private var neutralPitch: Double = 0
 
     nonisolated private static let imageOrientation: CGImagePropertyOrientation = .leftMirrored
 
@@ -52,31 +58,38 @@ final class FaceDetector: ObservableObject {
         do {
             try handler.perform([request])
         } catch {
-            deliver(faceDetected: false, eyeAspectRatio: 0, boundingBox: .zero)
+            deliver(faceDetected: false, eyeAspectRatio: 0, pitch: 0, yaw: 0, boundingBox: .zero)
             return
         }
 
         guard let face = request.results?.first else {
-            deliver(faceDetected: false, eyeAspectRatio: 0, boundingBox: .zero)
+            deliver(faceDetected: false, eyeAspectRatio: 0, pitch: 0, yaw: 0, boundingBox: .zero)
             return
         }
 
-        deliver(faceDetected: true, eyeAspectRatio: averageEyeAspectRatio(for: face), boundingBox: face.boundingBox)
+        deliver(faceDetected: true,
+                eyeAspectRatio: averageEyeAspectRatio(for: face),
+                pitch: degrees(from: face.pitch),
+                yaw: degrees(from: face.yaw),
+                boundingBox: face.boundingBox)
     }
 
-    nonisolated private func deliver(faceDetected: Bool, eyeAspectRatio: Double, boundingBox: CGRect) {
+    nonisolated private func deliver(faceDetected: Bool, eyeAspectRatio: Double, pitch: Double, yaw: Double, boundingBox: CGRect) {
         DispatchQueue.main.async { [weak self] in
-            self?.consume(faceDetected: faceDetected, eyeAspectRatio: eyeAspectRatio, boundingBox: boundingBox)
+            self?.consume(faceDetected: faceDetected, eyeAspectRatio: eyeAspectRatio, pitch: pitch, yaw: yaw, boundingBox: boundingBox)
         }
     }
 
-    private func consume(faceDetected: Bool, eyeAspectRatio: Double, boundingBox: CGRect) {
+    private func consume(faceDetected: Bool, eyeAspectRatio: Double, pitch: Double, yaw: Double, boundingBox: CGRect) {
         isFaceDetected = faceDetected
         faceBoundingBox = boundingBox
         self.eyeAspectRatio = eyeAspectRatio
+        headPitch = pitch
+        headYaw = yaw
 
         guard faceDetected else {
             eyesClosed = false
+            isHeadDown = false
             if case .calibrating = calibrationState {
                 resetCalibration()
             }
@@ -86,23 +99,26 @@ final class FaceDetector: ObservableObject {
         switch calibrationState {
         case .idle:
             guard isCalibrationEnabled else { return }
-            startCalibration(with: eyeAspectRatio)
+            startCalibration(eyeAspectRatio: eyeAspectRatio, pitch: pitch)
         case .calibrating:
-            updateCalibration(with: eyeAspectRatio)
+            updateCalibration(eyeAspectRatio: eyeAspectRatio, pitch: pitch)
         case .calibrated:
             eyesClosed = eyeAspectRatio < closedEyeThreshold
+            isHeadDown = (neutralPitch - pitch) > headDownThreshold
             updatePerclos(closed: eyesClosed)
         }
     }
 
-    private func startCalibration(with sample: Double) {
+    private func startCalibration(eyeAspectRatio: Double, pitch: Double) {
         calibrationStartedAt = Date()
-        calibrationSamples = [sample]
+        calibrationSamples = [eyeAspectRatio]
+        calibrationPitchSamples = [pitch]
         calibrationState = .calibrating(progress: 0)
     }
 
-    private func updateCalibration(with sample: Double) {
-        calibrationSamples.append(sample)
+    private func updateCalibration(eyeAspectRatio: Double, pitch: Double) {
+        calibrationSamples.append(eyeAspectRatio)
+        calibrationPitchSamples.append(pitch)
 
         let elapsed = Date().timeIntervalSince(calibrationStartedAt ?? Date())
         let progress = min(elapsed / calibrationDuration, 1)
@@ -120,19 +136,19 @@ final class FaceDetector: ObservableObject {
             return
         }
 
-        let sorted = calibrationSamples.sorted()
-        let median = sorted[sorted.count / 2]
-
-        baseline = median
-        closedEyeThreshold = median * closedEyeRatio
+        baseline = median(of: calibrationSamples)
+        closedEyeThreshold = baseline * closedEyeRatio
+        neutralPitch = median(of: calibrationPitchSamples)
         calibrationState = .calibrated
         calibrationSamples = []
+        calibrationPitchSamples = []
         calibrationStartedAt = nil
     }
 
     private func resetCalibration() {
         calibrationState = .idle
         calibrationSamples = []
+        calibrationPitchSamples = []
         calibrationStartedAt = nil
         eyeSamples = []
         perclos = 0
@@ -147,6 +163,17 @@ final class FaceDetector: ObservableObject {
 
         let closedCount = eyeSamples.filter(\.closed).count
         perclos = eyeSamples.isEmpty ? 0 : Double(closedCount) / Double(eyeSamples.count)
+    }
+
+    private func median(of values: [Double]) -> Double {
+        guard !values.isEmpty else { return 0 }
+        let sorted = values.sorted()
+        return sorted[sorted.count / 2]
+    }
+
+    nonisolated private func degrees(from value: NSNumber?) -> Double {
+        guard let radians = value?.doubleValue else { return 0 }
+        return radians * 180 / .pi
     }
 
     nonisolated private func averageEyeAspectRatio(for face: VNFaceObservation) -> Double {

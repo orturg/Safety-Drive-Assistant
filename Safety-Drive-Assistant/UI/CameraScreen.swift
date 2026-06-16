@@ -44,6 +44,19 @@ struct CameraScreen: View {
 //            }
             
             setupText
+
+            if case .calibrated = faceDetector.calibrationState {
+                VStack {
+                    Text(statusText)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                        .padding(.top, 8)
+
+                    Spacer()
+                }
+            }
         }
         .onAppear {
             cameraManager.start()
@@ -160,31 +173,15 @@ struct CameraScreen: View {
             && (0.35...0.80).contains(Double(bb.midY))
     }
 
-    private var statusColor: Color {
-        guard faceDetector.isFaceDetected else { return .red }
-
-        switch faceDetector.calibrationState {
-        case .idle, .calibrating:
-            return .orange
-        case .calibrated:
-            return faceDetector.eyesClosed ? .red : .green
-        }
-    }
-
     private var statusText: String {
-        guard faceDetector.isFaceDetected else { return "No face" }
+        var flags = ""
+        if faceDetector.eyesClosed { flags += " · EYES" }
+        if faceDetector.isHeadDown { flags += " · HEAD" }
 
-        switch faceDetector.calibrationState {
-        case .idle:
-            return "Calibrating…"
-        case .calibrating(let progress):
-            return "Calibrating… \(Int(progress * 100))%"
-        case .calibrated:
-            let perclos = String(format: "PERCLOS %.0f%%", faceDetector.perclos * 100)
-            return faceDetector.eyesClosed
-                ? "Eyes closed · \(perclos)"
-                : String(format: "EAR %.2f · \(perclos)", faceDetector.eyeAspectRatio)
-        }
+        return String(format: "EAR %.2f · pitch %.0f° · PERCLOS %.0f%%",
+                      faceDetector.eyeAspectRatio,
+                      faceDetector.headPitch,
+                      faceDetector.perclos * 100) + flags
     }
 }
 
