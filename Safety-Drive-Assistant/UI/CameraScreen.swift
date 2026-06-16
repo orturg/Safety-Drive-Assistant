@@ -152,7 +152,7 @@ struct CameraScreen: View {
             Spacer()
             
             Button {
-                faceDetector.isCalibrationEnabled = true
+                faceDetector.startTrip()
             } label: {
                 Text("Start trip")
                     .foregroundStyle(.white)
@@ -174,9 +174,12 @@ struct CameraScreen: View {
     }
 
     private var statusText: String {
-        var flags = ""
+        var flags = faceDetector.isTripActive ? " · TRIP" : ""
         if faceDetector.eyesClosed { flags += " · EYES" }
         if faceDetector.isHeadDown { flags += " · HEAD" }
+        if let alert = faceDetector.alert {
+            flags += " · \(alert.type == .critical ? "CRIT" : "WARN") \(alert.reason)"
+        }
 
         return String(format: "EAR %.2f · pitch %.0f° · PERCLOS %.0f%%",
                       faceDetector.eyeAspectRatio,

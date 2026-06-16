@@ -17,6 +17,11 @@ final class FaceDetector: ObservableObject {
         case calibrated
     }
 
+    struct DriverAlert: Equatable {
+        let type: AlertType
+        let reason: AlertReason
+    }
+
     private struct EyeSample {
         let time: Date
         let closed: Bool
@@ -33,6 +38,8 @@ final class FaceDetector: ObservableObject {
     @Published private(set) var headPitch: Double = 0
     @Published private(set) var headYaw: Double = 0
     @Published private(set) var isHeadDown = false
+    @Published private(set) var isTripActive = false
+    @Published private(set) var alert: DriverAlert?
 
     var isCalibrationEnabled: Bool = false
 
@@ -40,14 +47,28 @@ final class FaceDetector: ObservableObject {
     private let closedEyeRatio = 0.75
     private let perclosWindow: TimeInterval = 15
     private let headDownThreshold: Double = 12
+    private let warningAfter: TimeInterval = 1.2
+    private let criticalAfter: TimeInterval = 2.5
+    private let faceLostWarningAfter: TimeInterval = 2.0
+    private let faceLostCriticalAfter: TimeInterval = 4.0
+    private let perclosWarning: Double = 0.35
 
     private var calibrationSamples: [Double] = []
     private var calibrationPitchSamples: [Double] = []
     private var calibrationStartedAt: Date?
     private var eyeSamples: [EyeSample] = []
     private var neutralPitch: Double = 0
+    private var eyesClosedSince: Date?
+    private var headDownSince: Date?
+    private var faceLostSince: Date?
 
     nonisolated private static let imageOrientation: CGImagePropertyOrientation = .leftMirrored
+
+    func startTrip() {
+        isTripActive = true
+        clearHazardTimers()
+        alert = nil
+    }
 
     nonisolated func process(_ sampleBuffer: CMSampleBuffer) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
@@ -87,26 +108,28 @@ final class FaceDetector: ObservableObject {
         headPitch = pitch
         headYaw = yaw
 
-        guard faceDetected else {
+        if faceDetected {
+            switch calibrationState {
+            case .idle:
+                if isCalibrationEnabled {
+                    startCalibration(eyeAspectRatio: eyeAspectRatio, pitch: pitch)
+                }
+            case .calibrating:
+                updateCalibration(eyeAspectRatio: eyeAspectRatio, pitch: pitch)
+            case .calibrated:
+                eyesClosed = eyeAspectRatio < closedEyeThreshold
+                isHeadDown = (neutralPitch - pitch) > headDownThreshold
+                updatePerclos(closed: eyesClosed)
+            }
+        } else {
             eyesClosed = false
             isHeadDown = false
             if case .calibrating = calibrationState {
                 resetCalibration()
             }
-            return
         }
 
-        switch calibrationState {
-        case .idle:
-            guard isCalibrationEnabled else { return }
-            startCalibration(eyeAspectRatio: eyeAspectRatio, pitch: pitch)
-        case .calibrating:
-            updateCalibration(eyeAspectRatio: eyeAspectRatio, pitch: pitch)
-        case .calibrated:
-            eyesClosed = eyeAspectRatio < closedEyeThreshold
-            isHeadDown = (neutralPitch - pitch) > headDownThreshold
-            updatePerclos(closed: eyesClosed)
-        }
+        evaluateAlert()
     }
 
     private func startCalibration(eyeAspectRatio: Double, pitch: Double) {
@@ -163,6 +186,62 @@ final class FaceDetector: ObservableObject {
 
         let closedCount = eyeSamples.filter(\.closed).count
         perclos = eyeSamples.isEmpty ? 0 : Double(closedCount) / Double(eyeSamples.count)
+    }
+
+    private func evaluateAlert() {
+        guard case .calibrated = calibrationState, isTripActive else {
+            clearHazardTimers()
+            if alert != nil { alert = nil }
+            return
+        }
+
+        let now = Date()
+        updateHazardTimer(&eyesClosedSince, active: isFaceDetected && eyesClosed, now: now)
+        updateHazardTimer(&headDownSince, active: isFaceDetected && isHeadDown, now: now)
+        updateHazardTimer(&faceLostSince, active: !isFaceDetected, now: now)
+
+        let newAlert = strongestAlert(now: now)
+        if newAlert != alert {
+            alert = newAlert
+        }
+    }
+
+    private func updateHazardTimer(_ since: inout Date?, active: Bool, now: Date) {
+        if active {
+            if since == nil { since = now }
+        } else {
+            since = nil
+        }
+    }
+
+    private func strongestAlert(now: Date) -> DriverAlert? {
+        let hazards: [(reason: AlertReason, since: Date?, warn: TimeInterval, critical: TimeInterval)] = [
+            (.eyesClosed, eyesClosedSince, warningAfter, criticalAfter),
+            (.headDown, headDownSince, warningAfter, criticalAfter),
+            (.faceLost, faceLostSince, faceLostWarningAfter, faceLostCriticalAfter)
+        ]
+
+        func duration(_ since: Date?) -> TimeInterval {
+            guard let since else { return 0 }
+            return now.timeIntervalSince(since)
+        }
+
+        if let hazard = hazards.first(where: { duration($0.since) >= $0.critical }) {
+            return DriverAlert(type: .critical, reason: hazard.reason)
+        }
+        if let hazard = hazards.first(where: { duration($0.since) >= $0.warn }) {
+            return DriverAlert(type: .warning, reason: hazard.reason)
+        }
+        if perclos >= perclosWarning {
+            return DriverAlert(type: .warning, reason: .eyesClosed)
+        }
+        return nil
+    }
+
+    private func clearHazardTimers() {
+        eyesClosedSince = nil
+        headDownSince = nil
+        faceLostSince = nil
     }
 
     private func median(of values: [Double]) -> Double {
