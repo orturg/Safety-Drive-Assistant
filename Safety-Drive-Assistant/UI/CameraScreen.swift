@@ -11,7 +11,9 @@ struct CameraScreen: View {
 
     @StateObject private var faceDetector: FaceDetector
     @StateObject private var cameraManager: CameraSessionManager
+
     @StateObject private var soundPlayer = AlertSoundPlayer()
+
 
     init() {
         let detector = FaceDetector()
@@ -25,24 +27,6 @@ struct CameraScreen: View {
                 .ignoresSafeArea()
 
             FaceFrame()
-
-//            VStack {
-//                HStack(spacing: 8) {
-//                    Circle()
-//                        .fill(statusColor)
-//                        .frame(width: 12, height: 12)
-//
-//                    Text(statusText)
-//                        .font(.caption)
-//                        .foregroundStyle(.white)
-//
-//                    Spacer()
-//                }
-//                .padding(.horizontal)
-//                .padding(.top, 8)
-//
-//                Spacer()
-//            }
             
             setupText
 
@@ -64,6 +48,7 @@ struct CameraScreen: View {
                     .ignoresSafeArea()
                     .transition(.opacity)
             }
+
         }
         .animation(.easeInOut(duration: 0.2), value: faceDetector.alert)
         .onAppear {
@@ -79,6 +64,9 @@ struct CameraScreen: View {
         .onDisappear {
             cameraManager.stop()
             soundPlayer.stop()
+        }
+        .onChange(of: faceDetector.eyesClosed) { _, closed in
+//            handleEyesClosedChange(closed)
         }
     }
     
@@ -169,6 +157,7 @@ struct CameraScreen: View {
             
             Button {
                 faceDetector.startTrip()
+
             } label: {
                 Text("Start trip")
                     .foregroundStyle(.white)
@@ -180,6 +169,23 @@ struct CameraScreen: View {
         }
         .padding(.horizontal, 20)
     }
+    
+//    private func handleEyesClosedChange(_ closed: Bool) {
+//        guard isDriving else { return }
+//        if closed {
+//            let now = Date()
+//            eyesClosedSince = now
+//            DispatchQueue.main.asyncAfter(deadline: .now() + eyesClosedAlertDelay) {
+//                if eyesClosedSince == now {
+//                    isAlertPresented = true
+//                }
+//            }
+//            
+//        } else {
+//            eyesClosedSince = nil
+//            isAlertPresented = false
+//        }
+//    }
     
     private var isFaceFramed: Bool {
         guard faceDetector.isFaceDetected else { return false }
