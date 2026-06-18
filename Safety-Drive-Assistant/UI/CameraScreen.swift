@@ -13,7 +13,7 @@ struct CameraScreen: View {
     @StateObject private var cameraManager: CameraSessionManager
 
     @StateObject private var soundPlayer = AlertSoundPlayer()
-
+    @StateObject private var motionService = MotionService()
 
     init() {
         let detector = FaceDetector()
@@ -45,7 +45,7 @@ struct CameraScreen: View {
                 }
             }
 
-            if let alert = faceDetector.alert {
+            if let alert = combinedAlert {
                 AlertView(alertType: alert.type, alertReason: alert.reason)
             }
 
@@ -54,7 +54,7 @@ struct CameraScreen: View {
         .onAppear {
             cameraManager.start()
         }
-        .onChange(of: faceDetector.alert) { _, newAlert in
+        .onChange(of: combinedAlert) { _, newAlert in
             switch newAlert?.type {
             case .warning: soundPlayer.playWarning()
             case .critical: soundPlayer.startCritical()
@@ -63,6 +63,7 @@ struct CameraScreen: View {
         }
         .onDisappear {
             cameraManager.stop()
+            motionService.stop()
             soundPlayer.stop()
         }
         .onChange(of: faceDetector.alert) { _, newAlert in
@@ -71,6 +72,9 @@ struct CameraScreen: View {
             case .critical: soundPlayer.startCritical()
             case nil: soundPlayer.stop()
             }
+        }
+        .onChange(of: faceDetector.isTripActive) { _, active in
+            if active { motionService.start() }
         }
     }
     
@@ -195,6 +199,13 @@ struct CameraScreen: View {
                       faceDetector.eyeAspectRatio,
                       faceDetector.headPitch,
                       faceDetector.perclos * 100) + flags
+    }
+    
+    private var combinedAlert: FaceDetector.DriverAlert? {
+        if faceDetector.isTripActive && motionService.isPhoneInHand {
+            return FaceDetector.DriverAlert(type: .critical, reason: .phoneInHand)
+        }
+        return faceDetector.alert
     }
 }
 

@@ -24,6 +24,7 @@ struct AlertView: View {
                 
                 Text(alertReason.description)
                     .font(.system(size: 22))
+                    .multilineTextAlignment(.center)
             }
         }
         .foregroundStyle(.white)
@@ -59,6 +60,7 @@ enum AlertReason: Equatable, Sendable {
     case headDown
     case faceLost
     case vehicleShake
+    case phoneInHand
 
     var title: String {
         switch self {
@@ -66,6 +68,7 @@ enum AlertReason: Equatable, Sendable {
         case .headDown: "Head down"
         case .faceLost: "Face not visible"
         case .vehicleShake: "Erratic motion"
+        case .phoneInHand: "Put down the phone"
         }
     }
 
@@ -75,6 +78,7 @@ enum AlertReason: Equatable, Sendable {
         case .headDown: "Lift your head and watch the road!"
         case .faceLost: "Keep your face toward the camera!"
         case .vehicleShake: "Pull over if you feel unsafe!"
+        case .phoneInHand: "Keep your hands on the wheel and eyes on the road!"
         }
     }
     
@@ -84,6 +88,7 @@ enum AlertReason: Equatable, Sendable {
         case .headDown: "arrow.down.to.line"
         case .faceLost: "person.crop.circle.badge.exclamationmark.fill"
         case .vehicleShake: "car.fill"
+        case .phoneInHand: "iphone.slash"
         }
     }
 }
