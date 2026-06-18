@@ -28,7 +28,9 @@ struct CameraScreen: View {
 
             FaceFrame()
             
-            setupText
+            if !faceDetector.isTripActive {
+                setupText
+            }
 
             if case .calibrated = faceDetector.calibrationState {
                 VStack {
@@ -45,8 +47,6 @@ struct CameraScreen: View {
 
             if let alert = faceDetector.alert {
                 AlertView(alertType: alert.type, alertReason: alert.reason)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
             }
 
         }
@@ -65,8 +65,12 @@ struct CameraScreen: View {
             cameraManager.stop()
             soundPlayer.stop()
         }
-        .onChange(of: faceDetector.eyesClosed) { _, closed in
-//            handleEyesClosedChange(closed)
+        .onChange(of: faceDetector.alert) { _, newAlert in
+            switch newAlert?.type {
+            case .warning: soundPlayer.playWarning()
+            case .critical: soundPlayer.startCritical()
+            case nil: soundPlayer.stop()
+            }
         }
     }
     
@@ -169,23 +173,7 @@ struct CameraScreen: View {
         }
         .padding(.horizontal, 20)
     }
-    
-//    private func handleEyesClosedChange(_ closed: Bool) {
-//        guard isDriving else { return }
-//        if closed {
-//            let now = Date()
-//            eyesClosedSince = now
-//            DispatchQueue.main.asyncAfter(deadline: .now() + eyesClosedAlertDelay) {
-//                if eyesClosedSince == now {
-//                    isAlertPresented = true
-//                }
-//            }
-//            
-//        } else {
-//            eyesClosedSince = nil
-//            isAlertPresented = false
-//        }
-//    }
+
     
     private var isFaceFramed: Bool {
         guard faceDetector.isFaceDetected else { return false }

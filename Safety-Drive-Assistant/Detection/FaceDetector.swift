@@ -117,7 +117,14 @@ final class FaceDetector: ObservableObject {
             case .calibrating:
                 updateCalibration(eyeAspectRatio: eyeAspectRatio, pitch: pitch)
             case .calibrated:
-                eyesClosed = eyeAspectRatio < closedEyeThreshold
+                let nowClosed = eyeAspectRatio < closedEyeThreshold
+                if eyesClosed, !nowClosed,
+                   let since = eyesClosedSince,
+                   Date().timeIntervalSince(since) >= warningAfter {
+                    eyeSamples.removeAll()
+                    perclos = 0
+                }
+                eyesClosed = nowClosed
                 isHeadDown = (neutralPitch - pitch) > headDownThreshold
                 updatePerclos(closed: eyesClosed)
             }
@@ -282,3 +289,4 @@ final class FaceDetector: ObservableObject {
         return (maxY - minY) / width
     }
 }
+
