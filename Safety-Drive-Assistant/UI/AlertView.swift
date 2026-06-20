@@ -58,6 +58,8 @@ enum AlertType {
 enum AlertReason: Equatable, Sendable {
     case eyesClosed
     case headDown
+    case headTurned
+    case nodding
     case faceLost
     case vehicleShake
     case phoneInHand
@@ -66,6 +68,8 @@ enum AlertReason: Equatable, Sendable {
         switch self {
         case .eyesClosed: "Eyes closed"
         case .headDown: "Head down"
+        case .headTurned: "Eyes on the road"
+        case .nodding: "Nodding off"
         case .faceLost: "Face not visible"
         case .vehicleShake: "Erratic motion"
         case .phoneInHand: "Put down the phone"
@@ -76,6 +80,8 @@ enum AlertReason: Equatable, Sendable {
         switch self {
         case .eyesClosed: "Open your eyes and watch the road!"
         case .headDown: "Lift your head and watch the road!"
+        case .headTurned: "Look ahead and stay focused!"
+        case .nodding: "You're falling asleep - pull over and rest!"
         case .faceLost: "Keep your face toward the camera!"
         case .vehicleShake: "Pull over if you feel unsafe!"
         case .phoneInHand: "Keep your hands on the wheel and eyes on the road!"
@@ -86,6 +92,8 @@ enum AlertReason: Equatable, Sendable {
         switch self {
         case .eyesClosed: "eye.slash.fill"
         case .headDown: "arrow.down.to.line"
+        case .headTurned: "arrow.left.and.right"
+        case .nodding: "moon.zzz.fill"
         case .faceLost: "person.crop.circle.badge.exclamationmark.fill"
         case .vehicleShake: "car.fill"
         case .phoneInHand: "iphone.slash"
