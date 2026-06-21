@@ -46,9 +46,11 @@ final class FaceDetector: ObservableObject {
     var isCalibrationEnabled: Bool = false
 
     private let calibrationDuration: TimeInterval = 3
-    private let closedEyeRatio = 0.75
+    private let closedEyeRatio = 0.8
+    private let absoluteClosedEyeThreshold: Double = 0.02
+    private let eyePoseToleranceYaw: Double = 25
     private let perclosWindow: TimeInterval = 15
-    private let headDownThreshold: Double = 8
+    private let headDownThreshold: Double = 3
     private let headTurnedThreshold: Double = 25
     private let nodWindow: TimeInterval = 10
     private let nodMaxDuration: TimeInterval = 0.8
@@ -57,8 +59,8 @@ final class FaceDetector: ObservableObject {
     private let criticalAfter: TimeInterval = 2.5
     private let faceLostWarningAfter: TimeInterval = 2.0
     private let faceLostCriticalAfter: TimeInterval = 4.0
-    private let headTurnedWarningAfter: TimeInterval = 2.0
-    private let headTurnedCriticalAfter: TimeInterval = 4.0
+    private let headTurnedWarningAfter: TimeInterval = 3.0
+    private let headTurnedCriticalAfter: TimeInterval = 5.0
     private let perclosWarning: Double = 0.35
 
     private var calibrationSamples: [Double] = []
@@ -137,7 +139,9 @@ final class FaceDetector: ObservableObject {
             case .calibrating:
                 updateCalibration(eyeAspectRatio: eyeAspectRatio, pitch: pitch, yaw: yaw)
             case .calibrated:
-                let nowClosed = eyeAspectRatio < closedEyeThreshold
+                let effectiveClosedThreshold = max(closedEyeThreshold, absoluteClosedEyeThreshold)
+                let yawDeviated = abs(yaw - neutralYaw) > eyePoseToleranceYaw
+                let nowClosed = !yawDeviated && eyeAspectRatio < effectiveClosedThreshold
                 if eyesClosed, !nowClosed,
                    let since = eyesClosedSince,
                    Date().timeIntervalSince(since) >= warningAfter {
@@ -330,17 +334,9 @@ final class FaceDetector: ObservableObject {
     nonisolated private func aspectRatio(of eye: VNFaceLandmarkRegion2D, boundingBox: CGRect) -> Double? {
         let points = eye.normalizedPoints
         guard points.count >= 4 else { return nil }
-
-        let xs = points.map { Double($0.x) * Double(boundingBox.width) }
-        let ys = points.map { Double($0.y) * Double(boundingBox.height) }
-
-        guard let minX = xs.min(), let maxX = xs.max(),
-              let minY = ys.min(), let maxY = ys.max() else { return nil }
-
-        let width = maxX - minX
-        guard width > 0 else { return nil }
-
-        return (maxY - minY) / width
+        let ys = points.map { Double($0.y) }
+        guard let minY = ys.min(), let maxY = ys.max() else { return nil }
+        return maxY - minY
     }
 }
 

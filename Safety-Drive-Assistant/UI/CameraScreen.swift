@@ -182,8 +182,8 @@ struct CameraScreen: View {
     private var isFaceFramed: Bool {
         guard faceDetector.isFaceDetected else { return false }
         let bb = faceDetector.faceBoundingBox
-        return (0.20...0.65).contains(Double(bb.width))
-            && (0.35...0.65).contains(Double(bb.midX))
+        return (0.15...0.65).contains(Double(bb.width))
+            && (0.20...0.80).contains(Double(bb.midX))
             && (0.35...0.80).contains(Double(bb.midY))
     }
 
