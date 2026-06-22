@@ -57,11 +57,13 @@ final class FaceDetector: ObservableObject {
     private let nodCountTrigger: Int = 2
     private let warningAfter: TimeInterval = 1.2
     private let criticalAfter: TimeInterval = 2.5
-    private let faceLostWarningAfter: TimeInterval = 2.0
-    private let faceLostCriticalAfter: TimeInterval = 4.0
+    private let faceLostWarningAfter: TimeInterval = 1.2
+    private let faceLostCriticalAfter: TimeInterval = 2.5
     private let headTurnedWarningAfter: TimeInterval = 3.0
     private let headTurnedCriticalAfter: TimeInterval = 5.0
     private let perclosWarning: Double = 0.35
+    private let faceLossGrace: TimeInterval = 1.5
+    private let combinedCriticalAfter: TimeInterval = 0.8
 
     private var calibrationSamples: [Double] = []
     private var calibrationPitchSamples: [Double] = []
@@ -77,6 +79,8 @@ final class FaceDetector: ObservableObject {
     private var nodTimestamps: [Date] = []
     private var wasHeadDown: Bool = false
     private var headDownEnteredAt: Date?
+    private var lastFaceSeenAt: Date?
+    private var combinedHazardSince: Date?
 
     nonisolated private static let imageOrientation: CGImagePropertyOrientation = .leftMirrored
 
@@ -131,6 +135,7 @@ final class FaceDetector: ObservableObject {
         headYaw = yaw
 
         if faceDetected {
+            lastFaceSeenAt = Date()
             switch calibrationState {
             case .idle:
                 if isCalibrationEnabled {
@@ -171,9 +176,15 @@ final class FaceDetector: ObservableObject {
                 updatePerclos(closed: eyesClosed)
             }
         } else {
-            eyesClosed = false
             if case .calibrating = calibrationState {
                 resetCalibration()
+            } else {
+                let beyondGrace = lastFaceSeenAt.map { Date().timeIntervalSince($0) > faceLossGrace } ?? true
+                if beyondGrace {
+                    eyesClosed = false
+                    isHeadDown = false
+                    isHeadTurned = false
+                }
             }
         }
 
@@ -249,10 +260,13 @@ final class FaceDetector: ObservableObject {
         }
 
         let now = Date()
-        updateHazardTimer(&eyesClosedSince, active: isFaceDetected && eyesClosed, now: now)
+        updateHazardTimer(&eyesClosedSince, active: eyesClosed, now: now)
         updateHazardTimer(&headDownSince, active: isHeadDown, now: now)
         updateHazardTimer(&headTurnedSince, active: isHeadTurned, now: now)
         updateHazardTimer(&faceLostSince, active: !isFaceDetected, now: now)
+        updateHazardTimer(&combinedHazardSince,
+                          active: eyesClosed && (isHeadDown || isHeadTurned || !isFaceDetected),
+                          now: now)
 
         let newAlert = strongestAlert(now: now)
         if newAlert != alert {
@@ -281,6 +295,9 @@ final class FaceDetector: ObservableObject {
             return now.timeIntervalSince(since)
         }
 
+        if duration(combinedHazardSince) >= combinedCriticalAfter {
+            return DriverAlert(type: .critical, reason: .nodding)
+        }
         if let hazard = hazards.first(where: { duration($0.since) >= $0.critical }) {
             return DriverAlert(type: .critical, reason: hazard.reason)
         }
@@ -301,12 +318,15 @@ final class FaceDetector: ObservableObject {
         headDownSince = nil
         headTurnedSince = nil
         faceLostSince = nil
+        combinedHazardSince = nil
         nodTimestamps.removeAll()
         if isHeadDown { isHeadDown = false }
         if isHeadTurned { isHeadTurned = false }
         if isNodding { isNodding = false }
+        if eyesClosed { eyesClosed = false }
         wasHeadDown = false
         headDownEnteredAt = nil
+        lastFaceSeenAt = nil
     }
 
     private func median(of values: [Double]) -> Double {
@@ -339,4 +359,3 @@ final class FaceDetector: ObservableObject {
         return maxY - minY
     }
 }
-
