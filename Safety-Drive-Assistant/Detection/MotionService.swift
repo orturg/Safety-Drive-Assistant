@@ -11,7 +11,7 @@ import Combine
 
 final class MotionService: ObservableObject {
 
-    @Published private(set) var isPhoneInHand: Bool = false
+    @Published private(set) var isUnsafePhoneMotionDetected: Bool = false
 
     private let updateInterval: TimeInterval = 1.0 / 30.0
 
@@ -62,7 +62,7 @@ final class MotionService: ObservableObject {
         flatStartTime = nil
         clearWorkItem?.cancel()
         clearWorkItem = nil
-        if isPhoneInHand { isPhoneInHand = false }
+        if isUnsafePhoneMotionDetected { isUnsafePhoneMotionDetected = false }
     }
 
     private func process(omega: Double, gravityZ: Double, timestamp t: TimeInterval) {
@@ -93,11 +93,11 @@ final class MotionService: ObservableObject {
     }
 
     private func raiseAlert() {
-        if !isPhoneInHand { isPhoneInHand = true }
+        if !isUnsafePhoneMotionDetected { isUnsafePhoneMotionDetected = true }
 
         clearWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
-            self?.isPhoneInHand = false
+            self?.isUnsafePhoneMotionDetected = false
             self?.clearWorkItem = nil
         }
         clearWorkItem = work

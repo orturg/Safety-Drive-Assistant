@@ -62,7 +62,7 @@ enum AlertReason: Equatable, Sendable {
     case nodding
     case faceLost
     case vehicleShake
-    case phoneInHand
+    case unsafePhoneMotion
 
     var title: String {
         switch self {
@@ -72,7 +72,7 @@ enum AlertReason: Equatable, Sendable {
         case .nodding: "Nodding off"
         case .faceLost: "Face not visible"
         case .vehicleShake: "Erratic motion"
-        case .phoneInHand: "Put down the phone"
+        case .unsafePhoneMotion: "Secure the phone"
         }
     }
 
@@ -84,7 +84,7 @@ enum AlertReason: Equatable, Sendable {
         case .nodding: "You're falling asleep - pull over and rest!"
         case .faceLost: "Keep your face toward the camera!"
         case .vehicleShake: "Pull over if you feel unsafe!"
-        case .phoneInHand: "Keep your hands on the wheel and eyes on the road!"
+        case .unsafePhoneMotion: "Keep the phone steady and focus on the road!"
         }
     }
     
@@ -96,7 +96,7 @@ enum AlertReason: Equatable, Sendable {
         case .nodding: "moon.zzz.fill"
         case .faceLost: "person.crop.circle.badge.exclamationmark.fill"
         case .vehicleShake: "car.fill"
-        case .phoneInHand: "iphone.slash"
+        case .unsafePhoneMotion: "iphone.slash"
         }
     }
 }

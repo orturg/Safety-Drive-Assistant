@@ -195,8 +195,8 @@ struct CameraScreen: View {
     }
     
     private var combinedAlert: FaceDetector.DriverAlert? {
-        if faceDetector.isTripActive && motionService.isPhoneInHand {
-            return FaceDetector.DriverAlert(type: .critical, reason: .phoneInHand)
+        if faceDetector.isTripActive && motionService.isUnsafePhoneMotionDetected {
+            return FaceDetector.DriverAlert(type: .critical, reason: .unsafePhoneMotion)
         }
         return faceDetector.alert
     }
