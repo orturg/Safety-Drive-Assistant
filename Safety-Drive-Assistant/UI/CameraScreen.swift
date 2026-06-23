@@ -32,18 +32,18 @@ struct CameraScreen: View {
                 setupText
             }
 
-            if case .calibrated = faceDetector.calibrationState {
-                VStack {
-                    Text(statusText)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.white)
-                        .padding(6)
-                        .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
-                        .padding(.top, 8)
-
-                    Spacer()
-                }
-            }
+//            if case .calibrated = faceDetector.calibrationState {
+//                VStack {
+//                    Text(statusText)
+//                        .font(.caption.monospaced())
+//                        .foregroundStyle(.white)
+//                        .padding(6)
+//                        .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+//                        .padding(.top, 8)
+//
+//                    Spacer()
+//                }
+//            }
 
             if let alert = combinedAlert {
                 AlertView(alertType: alert.type, alertReason: alert.reason)

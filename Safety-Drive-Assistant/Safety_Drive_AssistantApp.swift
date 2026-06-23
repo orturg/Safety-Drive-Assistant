@@ -11,18 +11,24 @@ import SwiftUI
 struct Safety_Drive_AssistantApp: App {
     
     @State private var isCameraPresented = false
+    @State private var isCoordinationHandled = false
     
     var body: some Scene {
         WindowGroup {
             Group {
-                if isCameraPresented {
-                    CameraScreen()
+                if isCoordinationHandled {
+                    if isCameraPresented {
+                        CameraScreen()
+                    } else {
+                        PermissionScreen(isCameraPresented: $isCameraPresented)
+                    }
                 } else {
-                    PermissionScreen(isCameraPresented: $isCameraPresented)
+                    Color.black.ignoresSafeArea()
                 }
             }
             .onAppear {
                 isCameraPresented = PermissionManager.accessStatus() == .authorized
+                isCoordinationHandled = true
             }
         }
     }
