@@ -50,7 +50,7 @@ struct CameraScreen: View {
             }
 
         }
-        .animation(.easeInOut(duration: 0.2), value: faceDetector.alert)
+        .animation(.easeInOut(duration: 0.2), value: combinedAlert)
         .onAppear {
             cameraManager.start()
         }
@@ -65,13 +65,6 @@ struct CameraScreen: View {
             cameraManager.stop()
             motionService.stop()
             soundPlayer.stop()
-        }
-        .onChange(of: faceDetector.alert) { _, newAlert in
-            switch newAlert?.type {
-            case .warning: soundPlayer.playWarning()
-            case .critical: soundPlayer.startCritical()
-            case nil: soundPlayer.stop()
-            }
         }
         .onChange(of: faceDetector.isTripActive) { _, active in
             if active { motionService.start() }
