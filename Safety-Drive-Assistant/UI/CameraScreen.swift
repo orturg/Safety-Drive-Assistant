@@ -32,19 +32,6 @@ struct CameraScreen: View {
                 setupText
             }
 
-//            if case .calibrated = faceDetector.calibrationState {
-//                VStack {
-//                    Text(statusText)
-//                        .font(.caption.monospaced())
-//                        .foregroundStyle(.white)
-//                        .padding(6)
-//                        .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
-//                        .padding(.top, 8)
-//
-//                    Spacer()
-//                }
-//            }
-
             if let alert = combinedAlert {
                 AlertView(alertType: alert.type, alertReason: alert.reason)
             }
@@ -180,19 +167,6 @@ struct CameraScreen: View {
             && (0.35...0.80).contains(Double(bb.midY))
     }
 
-    private var statusText: String {
-        var flags = faceDetector.isTripActive ? " · TRIP" : ""
-        if faceDetector.eyesClosed { flags += " · EYES" }
-        if faceDetector.isHeadDown { flags += " · HEAD" }
-        if let alert = faceDetector.alert {
-            flags += " · \(alert.type == .critical ? "CRIT" : "WARN") \(alert.reason)"
-        }
-
-        return String(format: "EAR %.2f · pitch %.0f° · PERCLOS %.0f%%",
-                      faceDetector.eyeAspectRatio,
-                      faceDetector.headPitch,
-                      faceDetector.perclos * 100) + flags
-    }
     
     private var combinedAlert: FaceDetector.DriverAlert? {
         if faceDetector.isTripActive && motionService.isUnsafePhoneMotionDetected {
